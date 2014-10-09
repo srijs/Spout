@@ -9,9 +9,9 @@ import Control.Monad
 import Control.Monad.State
 
 producer :: (Functor m) => m (Chunk e r v) -> Chunk e r v -> Stream m e r v
-producer p (Left (Left e))  = Error e
-producer p (Left (Right r)) = End r
-producer p (Right v)        = Data v (produce p)
+producer p (Error e)  = Failure e
+producer p (Result r) = Success r
+producer p (Value v)  = Data v (produce p)
 
 produce :: (Functor m) => m (Chunk e r v) -> Stream m e r v
 produce p = Pending (fmap (producer p) p)
@@ -31,14 +31,14 @@ streamState = do
   gen <- get
   let (i, gen2) = next gen
   put gen2
-  return (Right i)
+  return (Value i)
 
 streamIO :: IO (Chunk e String Int)
 streamIO = do
   gen <- getStdGen
   let (i, gen2) = next gen
   setStdGen gen2
-  return (Right i)
+  return (Value i)
 
 readTest :: (Monad m) => StreamReaderT e r v m [Chunk e r v]
 readTest = do
