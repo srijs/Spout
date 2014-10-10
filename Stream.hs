@@ -14,13 +14,13 @@ read :: (Monad m) => (Stream m e r v) -> m (Chunk e r v, Stream m e r v)
 read (Success r) = return (Result r, Success r)
 read (Failure e) = return (Error e, Failure e)
 read (Data v m)  = return (Value v, m)
-read (Pending s) = s >>= \s' -> Stream.read s'
+read (Pending s) = s >>= Stream.read
 
 runStream :: (Monad m) => (Stream m e r v) -> m [Chunk e r v]
 runStream (Success r) = return [Result r]
 runStream (Failure e) = return [Error e]
-runStream (Data v s)  = runStream s >>= \s' -> return (Value v : s')
-runStream (Pending s) = s >>= \s' -> runStream s'
+runStream (Data v s)  = liftM (Value v :) (runStream s)
+runStream (Pending s) = s >>= runStream
 
 instance (Show v, Show e, Show r) => Show (Stream m e r v) where
   show (Success r) = "->" ++ show r
@@ -28,8 +28,8 @@ instance (Show v, Show e, Show r) => Show (Stream m e r v) where
   show (Data v s ) = show v ++ show s
   show (Pending _) = "..."
 
-instance (Monad m) => Functor (Stream m e r) where
+instance (Functor m) => Functor (Stream m e r) where
   fmap f (Success r) = Success r
   fmap f (Failure e) = Failure e
   fmap f (Data v s)  = Data (f v) (fmap f s)
-  fmap f (Pending s) = Pending (s >>= \s' -> return (fmap f s'))
+  fmap f (Pending s) = Pending (fmap (fmap f) s)
