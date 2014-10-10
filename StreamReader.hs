@@ -1,30 +1,9 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module StreamReader where
 
 import Stream
-import System.Random
-import Control.Applicative
-import Control.Monad
+
 import Control.Monad.State
-
-producer :: (Functor m) => m (Chunk e r v) -> Chunk e r v -> Stream m e r v
-producer p (Error e)  = Failure e
-producer p (Result r) = Success r
-producer p (Value v)  = Data v (produce p)
-
-produce :: (Functor m) => m (Chunk e r v) -> Stream m e r v
-produce p = Pending (fmap (producer p) p)
-
-newtype StreamReaderT e r v m s = StreamReaderT { getStateT :: StateT (Stream m e r v) m s }
-  deriving (Functor, Applicative, Monad, MonadIO)
-
-runReaderT (StreamReaderT s) = evalStateT s
-
-read :: (Monad m) => StreamReaderT e r v m (Chunk e r v)
-read = StreamReaderT $ StateT Stream.read
-
-{- example -}
+import System.Random
 
 streamState :: State StdGen (Chunk e String Int)
 streamState = do
@@ -42,11 +21,11 @@ streamIO = do
 
 readTest :: (Monad m) => StreamReaderT e r v m [Chunk e r v]
 readTest = do
-  a <- StreamReader.read
-  b <- StreamReader.read
-  c <- StreamReader.read
-  d <- StreamReader.read
+  a <- Stream.read
+  b <- Stream.read
+  c <- Stream.read
+  d <- Stream.read
   return [a, b, c, d]
 
 readTestRun = do
-  runReaderT readTest (produce streamIO)
+  runStreamReaderT readTest (produce streamIO)
