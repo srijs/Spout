@@ -43,12 +43,6 @@ instance (Show v, Show e, Show r) => Show (Stream m e r v) where
   show (Data v s)  = show v ++ "," ++ show s
   show (Pending _) = "..."
 
-instance (Functor m) => Functor (Stream m e r) where
-  fmap f (Success r) = Success r
-  fmap f (Failure e) = Failure e
-  fmap f (Data v s)  = Data (f v) (fmap f s)
-  fmap f (Pending s) = Pending (fmap (fmap f) s)
-
 {- Result Monoid -}
 
 memptyR :: (Monoid r) => Stream m e r v
