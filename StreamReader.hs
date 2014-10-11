@@ -19,6 +19,7 @@ streamIO = do
   setStdGen gen2
   return (Value i)
 
+
 readTest :: (Monad m) => StreamReaderT e r v m [Chunk e r v]
 readTest = do
   a <- Stream.read
@@ -28,4 +29,4 @@ readTest = do
   return [a, b, c, d]
 
 readTestRun = do
-  runStreamReaderT readTest (produce streamIO)
+  runStreamReaderT readTest $ (mapV (2*)) (produce streamIO)
