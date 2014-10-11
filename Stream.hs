@@ -15,6 +15,8 @@ data Stream m e r v = Pending (m (Stream m e r v))
 data Chunk e r v = Value v | Result r | Error e
   deriving Show
 
+newtype StreamR m v e r = StreamR { unwrapR :: Stream m e r v  }
+
 readChunk :: (Monad m) => (Stream m e r v) -> m (Chunk e r v, Stream m e r v)
 readChunk (Success r) = return (Result r, Success r)
 readChunk (Failure e) = return (Error e, Failure e)
@@ -39,19 +41,27 @@ instance (Functor m) => Functor (Stream m e r) where
   fmap f (Data v s)  = Data (f v) (fmap f s)
   fmap f (Pending s) = Pending (fmap (fmap f) s)
 
--- This will be `liftM mappend` at some point?
-mappendR :: (Monoid r, Monad m) => r -> Stream m e r v -> Stream m e r v
-mappendR r (Success r') = Success (mappend r r')
-mappendR _ (Failure e)  = Failure e
-mappendR r (Data v s)   = Data v (mappendR r s)
-mappendR r (Pending p)  = Pending (liftM (mappendR r) p)
+{- Result Monoid -}
 
-instance (Monoid r, Monad m) => Monoid (Stream m e r v) where
-  mempty = Success mempty
-  mappend (Success r) s = mappendR r s
-  mappend (Failure e) _ = Failure e
-  mappend (Data v s') s = Data v (mappend s' s)
-  mappend (Pending p) s = Pending (liftM (\s' -> mappend s' s) p)
+memptyR :: (Monoid r) => Stream m e r v
+memptyR = Success mempty
+
+mappendR :: (Monoid r, Monad m) => Stream m e r v -> Stream m e r v -> Stream m e r v
+mappendR (Success r) s = mappendR_ r s
+mappendR (Failure e) _ = Failure e
+mappendR (Data v s') s = Data v (mappendR s' s)
+mappendR (Pending p) s = Pending (liftM (\s' -> mappendR s' s) p)
+
+-- This will be `liftM mappend` at some point?
+mappendR_ :: (Monoid r, Monad m) => r -> Stream m e r v -> Stream m e r v
+mappendR_ r (Success r') = Success (mappend r r')
+mappendR_ _ (Failure e)  = Failure e
+mappendR_ r (Data v s)   = Data v (mappendR_ r s)
+mappendR_ r (Pending p)  = Pending (liftM (mappendR_ r) p)
+
+instance (Monoid r, Monad m) => Monoid (StreamR m v e r) where
+  mempty = StreamR (memptyR)
+  mappend (StreamR a) (StreamR b) = StreamR (mappendR a b)
 
 returnV :: (Monoid r) => v -> Stream m e r v
 returnV v = Data v (Success mempty)
