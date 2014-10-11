@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, ScopedTypeVariables #-}
 
-import Test.Hspec
-import Test.QuickCheck
+import Test.Tasty
+import Test.Tasty.QuickCheck as QC
 
 import Text.Show.Functions
 import Control.Monad.Identity
@@ -21,91 +21,88 @@ type FR = R -> R
 type MV = V -> SR
 type MR = R -> SR
 
-main :: IO ()
-main = hspec $ do
+main = defaultMain $ testGroup "Properties"
 
-  describe "Monoid" $ do
+  [ testGroup "Monoid"
 
-    it "satisfies Identity axiom" $ property $
-      \(x :: SR) -> (mappend mempty x == x) && (mappend x mempty == x)
+    [ QC.testProperty "Identity" $
+        \(x :: SR) -> (mappend mempty x == x) && (mappend x mempty == x)
+    , QC.testProperty "Associativity" $
+        \(x :: SR, y :: SR, z :: SR) -> mappend x (mappend y z) == mappend (mappend x y) z
+    ]
 
-    it "satisfies Associativity axiom" $ property $
-      \(x :: SR, y :: SR, z :: SR) -> mappend x (mappend y z) == mappend (mappend x y) z
+  , testGroup "Result Functor"
 
-  describe "Result Functor" $ do
+    [ QC.testProperty "Identity" $
+        \(x :: SR) -> fmapR id x == id x
+    , QC.testProperty "Distributive" $
+        \(p :: FR, q :: FR, x :: SR) -> fmapR (p . q) x == ((fmapR p) . (fmapR q)) x
+    ]
 
-    it "satisfies Identity axiom" $ property $
-      \(x :: SR) -> fmapR id x == id x
+  , testGroup "Result Applicative"
 
-    it "satisfies Distributive axiom" $ property $
-      \(p :: FR, q :: FR, x :: SR) -> fmapR (p . q) x == ((fmapR p) . (fmapR q)) x
+    [ QC.testProperty "Identity" $
+        \(v :: SR) -> pureR id `apR` v == v
+    , QC.testProperty "Composition" $
+        \(u :: SRF, v :: SRF, w :: SR) -> pureR (.) `apR` u `apR` v `apR` w == u `apR` (v `apR` w)
+    , QC.testProperty "Homomorphism" $
+        \(f :: FR, x :: R) -> pureR f `apR` pureR x == (pureR (f x) :: SR)
+    , QC.testProperty "Interchange" $
+        \(u :: SRF, y :: R) -> u `apR` pureR y == pureR ($ y) `apR` u
+    , QC.testProperty "Functor" $
+        \(f :: FR, x :: SR) -> fmapR f x == pureR f `apR` x
+    ]
 
-  describe "Result Applicative" $ do
+  , testGroup "Result Monad"
 
-    it "satisfies Identity axiom" $ property $
-      \(v :: SR) -> pureR id `apR` v == v
+    [ QC.testProperty "Left Identity" $
+        \(a :: R, f :: MR) -> (bindR (returnR a) f) == f a
+    , QC.testProperty "Right Identity" $
+        \(m :: SR) -> bindR m returnR == m
+    , QC.testProperty "Associativity" $
+        \(m :: SR, f :: MR, g :: MR) -> bindR (bindR m f) g == bindR m (\x -> bindR (f x) g)
+    ]
 
-    it "satisfies Composition axiom" $ property $
-      \(u :: SRF, v :: SRF, w :: SR) -> pureR (.) `apR` u `apR` v `apR` w == u `apR` (v `apR` w)
+  , testGroup "Value Functor"
 
-    it "satisfies Homomorphism axiom" $ property $
-      \(f :: FR, x :: R) -> pureR f `apR` pureR x == (pureR (f x) :: SR)
+    [ QC.testProperty "Identity" $
+        \(x :: SR) -> fmapV id x == id x
+    , QC.testProperty "Distributive" $
+        \(p :: FV, q :: FV, x :: SR) -> fmapV (p . q) x == ((fmapV p) . (fmapV q)) x
+    ]
 
-    it "satisfies Interchange axiom" $ property $
-      \(u :: SRF, y :: R) -> u `apR` pureR y == pureR ($ y) `apR` u
+  , testGroup "Value Applicative"
 
-    it "is consistent with Functor" $ property $
-      \(f :: FR, x :: SR) -> fmapR f x == pureR f `apR` x
+    [ QC.testProperty "Identity" $
+        \(v :: SR) -> pureV id `apV` v == v
+    , QC.testProperty "Composition" $
+        \(u :: SVF, v :: SVF, w :: SR) -> pureV (.) `apV` u `apV` v `apV` w == u `apV` (v `apV` w)
+    , QC.testProperty "Homomorphism" $
+        \(f :: FV, x :: V) -> pureV f `apV` pureV x == (pureV (f x) :: SR)
+    , QC.testProperty "Interchange" $
+        \(u :: SVF, y :: V) -> u `apV` pureV y == pureV ($ y) `apV` u
+    , QC.testProperty "Functor" $
+        \(f :: FV, x :: SR) -> fmapV f x == pureV f `apV` x
+    ]
 
-  describe "Result Monad" $ do
+  , testGroup "Value Monad"
 
-    it "satisfies Left Identity axiom" $ property $
-      \(a :: R, f :: MR) -> (bindR (returnR a) f) == f a
+    [ QC.testProperty "Left Identity"  $
+        \(a :: V, f :: MV) -> (bindV (returnV a) f) == f a
+    , QC.testProperty "Right Identity" $
+        \(m :: SR) -> bindV m returnV == m
+    , QC.testProperty "Associativity" $
+        \(m :: SR, f :: MV, g :: MV) -> bindV (bindV m f) g == bindV m (\x -> bindV (f x) g)
+    ]
 
-    it "satisfies Right Identity axiom" $ property $
-      \(m :: SR) -> bindR m returnR == m
+  ]
 
-    it "satisfies Associativity axiom" $ property $
-      \(m :: SR, f :: MR, g :: MR) -> bindR (bindR m f) g == bindR m (\x -> bindR (f x) g)
-
-  describe "Value Functor" $ do
-
-    it "satisfies Identity axiom" $ property $
-      \(x :: SR) -> fmapV id x == id x
-
-    it "satisfies Distributive axiom" $ property $
-      \(p :: FV, q :: FV, x :: SR) -> fmapV (p . q) x == ((fmapV p) . (fmapV q)) x
-
-  describe "Value Applicative" $ do
-
-    it "satisfies Identity axiom" $ property $
-      \(v :: SR) -> pureV id `apV` v == v
-
-    it "satisfies Composition axiom" $ property $
-      \(u :: SVF, v :: SVF, w :: SR) -> pureV (.) `apV` u `apV` v `apV` w == u `apV` (v `apV` w)
-
-    it "satisfies Homomorphism axiom" $ property $
-      \(f :: FV, x :: V) -> pureV f `apV` pureV x == (pureV (f x) :: SR)
-
-    it "satisfies Interchange axiom" $ property $
-      \(u :: SVF, y :: V) -> u `apV` pureV y == pureV ($ y) `apV` u
-
-    it "is consistent with Functor" $ property $
-      \(f :: FV, x :: SR) -> fmapV f x == pureV f `apV` x
-
-  describe "Value Monad" $ do
-
-    it "satisfies Left Identity axiom" $ property $
-      \(a :: V, f :: MV) -> (bindV (returnV a) f) == f a
-
-    it "satisfies Right Identity axiom" $ property $
-      \(m :: SR) -> bindV m returnV == m
-
-    it "satisfies Associativity axiom" $ property $
-      \(m :: SR, f :: MV, g :: MV) -> bindV (bindV m f) g == bindV m (\x -> bindV (f x) g)
-
-instance (Arbitrary e, Arbitrary r, Arbitrary v) => Arbitrary (Stream m e r v) where
+instance (Arbitrary e, Arbitrary r, Arbitrary v) => Arbitrary (Stream Identity e r v) where
   arbitrary = oneof [
     arbitrary >>= \r -> return (Stream.Success r),
     arbitrary >>= \e -> return (Stream.Failure e),
     arbitrary >>= \v -> arbitrary >>= \s -> return (Stream.Data v s)]
+  shrink (Data v s) = map (Stream.Data v) (shrink s) ++ shrink s
+  shrink (Pending p) = shrink (runIdentity p)
+  shrink (Stream.Failure e) = map Stream.Failure (shrink e)
+  shrink (Stream.Success r) = map Stream.Success (shrink r)
