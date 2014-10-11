@@ -15,7 +15,7 @@ data Stream m e r v = Pending (m (Stream m e r v))
 data Chunk e r v = Value v | Result r | Error e
   deriving Show
 
-newtype StreamR m v e r = StreamR { unwrapR :: Stream m e r v  }
+newtype StreamR m v e r = StreamR { unwrapR :: Stream m e r v }
 
 readChunk :: (Monad m) => (Stream m e r v) -> m (Chunk e r v, Stream m e r v)
 readChunk (Success r) = return (Result r, Success r)
@@ -62,6 +62,19 @@ mappendR_ r (Pending p)  = Pending (liftM (mappendR_ r) p)
 instance (Monoid r, Monad m) => Monoid (StreamR m v e r) where
   mempty = StreamR (memptyR)
   mappend (StreamR a) (StreamR b) = StreamR (mappendR a b)
+
+{- Result Functor -}
+
+fmapR :: (Monad m) => (a -> b) -> Stream m e a v -> Stream m e b v
+fmapR f (Success r) = Success (f r)
+fmapR _ (Failure e) = Failure e
+fmapR f (Data v s)  = Data v (fmapR f s)
+fmapR f (Pending p) = Pending (liftM (fmapR f) p)
+
+instance (Monad m) => Functor (StreamR m v e) where
+  fmap f (StreamR s) = StreamR (fmapR f s)
+
+{- Misc -}
 
 returnV :: (Monoid r) => v -> Stream m e r v
 returnV v = Data v (Success mempty)
