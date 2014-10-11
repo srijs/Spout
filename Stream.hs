@@ -12,22 +12,19 @@ data Stream m e r v = Pending (m (Stream m e r v))
                     | Success r
                     | Failure e
 
-data Chunk e r v = Value v | Result r | Error e
-  deriving Show
-
 newtype StreamR m v e r = StreamR { unwrapR :: Stream m e r v }
 newtype StreamV m e r v = StreamV { unwrapV :: Stream m e r v }
 
-readChunk :: (Monad m) => (Stream m e r v) -> m (Chunk e r v, Stream m e r v)
-readChunk (Success r) = return (Result r, Success r)
-readChunk (Failure e) = return (Error e, Failure e)
-readChunk (Data v m)  = return (Value v, m)
+readChunk :: (Monoid r, Monad m) => (Stream m e r v) -> m (Stream m e r v, Stream m e r v)
+readChunk (Success r) = return (Success r, Success r)
+readChunk (Failure e) = return (Failure e, Failure e)
+readChunk (Data v m)  = return (Data v (Success mempty), m)
 readChunk (Pending s) = s >>= readChunk
 
-runStream :: (Monad m) => (Stream m e r v) -> m [Chunk e r v]
-runStream (Success r) = return [Result r]
-runStream (Failure e) = return [Error e]
-runStream (Data v s)  = liftM (Value v :) (runStream s)
+runStream :: (Monoid r, Monad m) => (Stream m e r v) -> m [Stream m e r v]
+runStream (Success r) = return [Success r]
+runStream (Failure e) = return [Failure e]
+runStream (Data v s)  = liftM (Data v (Success mempty) :) (runStream s)
 runStream (Pending s) = s >>= runStream
 
 instance (Eq (m (Stream m e r v)), Eq e, Eq r, Eq v) => Eq (Stream m e r v) where
@@ -40,7 +37,7 @@ instance (Eq (m (Stream m e r v)), Eq e, Eq r, Eq v) => Eq (Stream m e r v) wher
 instance (Show v, Show e, Show r) => Show (Stream m e r v) where
   show (Success r) = "=" ++ show r
   show (Failure e) = "!" ++ show e
-  show (Data v s)  = show v ++ "," ++ show s
+  show (Data v s)  = show v ++ ">" ++ show s
   show (Pending _) = "..."
 
 {- Result Monoid -}
@@ -124,12 +121,12 @@ bindV (Pending p) f = Pending (liftM (\s -> bindV s f) p)
 bindV (Failure e) _ = Failure e
 bindV (Success r) _ = Success r
 
-producer :: (Functor m) => m (Chunk e r v) -> Chunk e r v -> Stream m e r v
-producer p (Error e)  = Failure e
-producer p (Result r) = Success r
-producer p (Value v)  = Data v (produce p)
+producer :: (Functor m) => m (Stream m e r v) -> Stream m e r v -> Stream m e r v
+producer p (Failure e) = Failure e
+producer p (Success r) = Success r
+producer p (Data v _)  = Data v (produce p)
 
-produce :: (Functor m) => m (Chunk e r v) -> Stream m e r v
+produce :: (Functor m) => m (Stream m e r v) -> Stream m e r v
 produce p = Pending (fmap (producer p) p)
 
 newtype StreamReaderT e r v m s = StreamReaderT { getStateT :: StateT (Stream m e r v) m s }
@@ -137,5 +134,5 @@ newtype StreamReaderT e r v m s = StreamReaderT { getStateT :: StateT (Stream m 
 
 runStreamReaderT (StreamReaderT s) = evalStateT s
 
-read :: (Monad m) => StreamReaderT e r v m (Chunk e r v)
+read :: (Monoid r, Monad m) => StreamReaderT e r v m (Stream m e r v)
 read = StreamReaderT $ StateT readChunk

@@ -2,25 +2,26 @@ module StreamReader where
 
 import Stream
 
+import Data.Monoid
 import Control.Monad.State
 import System.Random
 
-streamState :: State StdGen (Chunk e String Int)
+streamState :: State StdGen (Stream m e String Int)
 streamState = do
   gen <- get
   let (i, gen2) = next gen
   put gen2
-  return (Value i)
+  return (Data i (Success mempty))
 
-streamIO :: IO (Chunk e String Int)
+streamIO :: IO (Stream m e String Int)
 streamIO = do
   gen <- getStdGen
   let (i, gen2) = next gen
   setStdGen gen2
-  return (Value i)
+  return (Data i (Success mempty))
 
 
-readTest :: (Monad m) => StreamReaderT e r v m [Chunk e r v]
+readTest :: (Monoid r, Monad m) => StreamReaderT e r v m [Stream m e r v]
 readTest = do
   a <- Stream.read
   b <- Stream.read
