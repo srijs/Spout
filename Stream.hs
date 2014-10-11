@@ -40,20 +40,14 @@ instance (Show v, Show e, Show r) => Show (Stream m e r v) where
   show (Data v s)  = show v ++ ">" ++ show s
   show (Pending _) = "..."
 
-{- Result Monoid -}
+{- Monoid -}
 
-memptyR :: (Monoid r) => Stream m e r v
-memptyR = Success mempty
-
-mappendR :: (Monoid r, Monad m) => Stream m e r v -> Stream m e r v -> Stream m e r v
-mappendR (Success r) s = fmapR (mappend r) s
-mappendR (Failure e) _ = Failure e
-mappendR (Data v s') s = Data v (mappendR s' s)
-mappendR (Pending p) s = Pending (liftM (\s' -> mappendR s' s) p)
-
-instance (Monoid r, Monad m) => Monoid (StreamR m v e r) where
-  mempty = StreamR (memptyR)
-  mappend (StreamR a) (StreamR b) = StreamR (mappendR a b)
+instance (Monoid r, Monad m) => Monoid (Stream m e r v) where
+  mempty = Success mempty
+  mappend (Success r) s = fmapR (mappend r) s
+  mappend (Failure e) _ = Failure e
+  mappend (Data v s') s = Data v (mappend s' s)
+  mappend (Pending p) s = Pending (liftM (\s' -> mappend s' s) p)
 
 {- Result Functor -}
 

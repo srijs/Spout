@@ -6,6 +6,8 @@ import Test.QuickCheck
 import Text.Show.Functions
 import Control.Monad.Identity
 
+import Data.Monoid
+
 import Stream
 
 type R = [Float]
@@ -15,18 +17,19 @@ type SR = S V R
 type SRF = S V (R -> R)
 type FV = V -> V
 type FR = R -> R
+type MV = V -> SR
 type MR = R -> SR
 
 main :: IO ()
 main = hspec $ do
 
-  describe "Result Monoid" $ do
+  describe "Monoid" $ do
 
     it "satisfies Identity axiom" $ property $
-      \(x :: SR) -> (mappendR memptyR x == x) && (mappendR x memptyR == x)
+      \(x :: SR) -> (mappend mempty x == x) && (mappend x mempty == x)
 
     it "satisfies Associativity axiom" $ property $
-      \(x :: SR, y :: SR, z :: SR) -> mappendR x (mappendR y z) == mappendR (mappendR x y) z
+      \(x :: SR, y :: SR, z :: SR) -> mappend x (mappend y z) == mappend (mappend x y) z
 
   describe "Result Functor" $ do
 
