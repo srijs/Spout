@@ -98,6 +98,18 @@ fmapV f (Pending p) = Pending (liftM (fmapV f) p)
 instance (Monad m) => Functor (StreamV m e r) where
   fmap f = StreamV . (fmapV f) . unwrapV
 
+{- Value Applicative -}
+
+pureV :: (Monoid r, Monad m) => v -> Stream m e r v
+pureV = returnV
+
+apV :: (Monoid r, Monad m) => Stream m e r (a -> b) -> Stream m e r a -> Stream m e r b
+apV m a = bindV m (\f -> bindV a (\s -> returnV (f s)))
+
+instance (Monoid r, Monad m) => Applicative (StreamV m e r) where
+  pure = StreamV . pureV
+  (<*>) (StreamV m) (StreamV a) = StreamV (apV m a)
+
 {- Value Monad -}
 
 returnV :: (Monoid r, Monad m) => v -> Stream m e r v

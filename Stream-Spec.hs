@@ -14,7 +14,8 @@ type R = [Float]
 type V = Int
 type S v r = Stream Identity Int r v
 type SR = S V R
-type SRF = S V (R -> R)
+type SRF = S V FR
+type SVF = S FV R
 type FV = V -> V
 type FR = R -> R
 type MV = V -> SR
@@ -74,6 +75,23 @@ main = hspec $ do
 
     it "satisfies Distributive axiom" $ property $
       \(p :: FV, q :: FV, x :: SR) -> fmapV (p . q) x == ((fmapV p) . (fmapV q)) x
+
+  describe "Value Applicative" $ do
+
+    it "satisfies Identity axiom" $ property $
+      \(v :: SR) -> pureV id `apV` v == v
+
+    it "satisfies Composition axiom" $ property $
+      \(u :: SVF, v :: SVF, w :: SR) -> pureV (.) `apV` u `apV` v `apV` w == u `apV` (v `apV` w)
+
+    it "satisfies Homomorphism axiom" $ property $
+      \(f :: FV, x :: V) -> pureV f `apV` pureV x == (pureV (f x) :: SR)
+
+    it "satisfies Interchange axiom" $ property $
+      \(u :: SVF, y :: V) -> u `apV` pureV y == pureV ($ y) `apV` u
+
+    it "is consistent with Functor" $ property $
+      \(f :: FV, x :: SR) -> fmapV f x == pureV f `apV` x
 
   describe "Value Monad" $ do
 
