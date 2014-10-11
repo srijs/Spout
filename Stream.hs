@@ -16,6 +16,7 @@ data Chunk e r v = Value v | Result r | Error e
   deriving Show
 
 newtype StreamR m v e r = StreamR { unwrapR :: Stream m e r v }
+newtype StreamV m e r v = StreamV { unwrapV :: Stream m e r v }
 
 readChunk :: (Monad m) => (Stream m e r v) -> m (Chunk e r v, Stream m e r v)
 readChunk (Success r) = return (Result r, Success r)
@@ -72,7 +73,7 @@ fmapR f (Data v s)  = Data v (fmapR f s)
 fmapR f (Pending p) = Pending (liftM (fmapR f) p)
 
 instance (Monad m) => Functor (StreamR m v e) where
-  fmap f (StreamR s) = StreamR (fmapR f s)
+  fmap f = StreamR . (fmapR f) . unwrapR
 
 {- Result Applicative -}
 
@@ -101,6 +102,17 @@ instance (Monad m) => Monad (StreamR m v e) where
   return = StreamR . returnR
   (>>=) s f = StreamR (bindR (unwrapR s) (unwrapR . f))
 
+{- Value Functor -}
+
+fmapV :: (Monad m) => (v -> w) -> Stream m e r v -> Stream m e r w
+fmapV _ (Success r) = Success r
+fmapV _ (Failure e) = Failure e
+fmapV f (Data v s)  = Data (f v) (fmapV f s)
+fmapV f (Pending p) = Pending (liftM (fmapV f) p)
+
+instance (Monad m) => Functor (StreamV m e r) where
+  fmap f = StreamV . (fmapV f) . unwrapV
+
 {- Misc -}
 
 returnV :: (Monoid r) => v -> Stream m e r v
@@ -117,13 +129,6 @@ bindV (Data v s)  f = f v
 bindV (Pending p) f = Pending (liftM (\s -> bindV s f) p)
 bindV (Failure e) _ = Failure e
 bindV (Success r) _ = Success r
-
-mapV :: (Monad m) => (v -> w) -> Stream m e r v -> Stream m e r w
---mapV f s = bindV s (\v -> Data (f v) (mapV f s'))
-mapV f = Pending . liftM mapChunk . Stream.readChunk
-  where mapChunk (Value v, s') = Data (f v) (mapV f s')
-        mapChunk (Error e, _)  = Failure e
-        mapChunk (Result r, _) = Success r
 
 producer :: (Functor m) => m (Chunk e r v) -> Chunk e r v -> Stream m e r v
 producer p (Error e)  = Failure e

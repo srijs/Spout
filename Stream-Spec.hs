@@ -9,9 +9,11 @@ import Control.Monad.Identity
 import Stream
 
 type R = [Float]
-type S r = Stream Identity Int r Double
-type SR = S R
-type SRF = S (R -> R)
+type V = Int
+type S v r = Stream Identity Int r v
+type SR = S V R
+type SRF = S V (R -> R)
+type FV = V -> V
 type FR = R -> R
 type MR = R -> SR
 
@@ -61,6 +63,14 @@ main = hspec $ do
 
     it "satisfies Associativity axiom" $ property $
       \(m :: SR, f :: MR, g :: MR) -> bindR (bindR m f) g == bindR m (\x -> bindR (f x) g)
+
+  describe "Value Functor" $ do
+
+    it "satisfies Identity axiom" $ property $
+      \(x :: SR) -> fmapV id x == id x
+
+    it "satisfies Distributive axiom" $ property $
+      \(p :: FV, q :: FV, x :: SR) -> fmapV (p . q) x == ((fmapV p) . (fmapV q)) x
 
 instance (Arbitrary e, Arbitrary r, Arbitrary v) => Arbitrary (Stream m e r v) where
   arbitrary = oneof [

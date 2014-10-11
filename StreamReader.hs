@@ -29,4 +29,4 @@ readTest = do
   return [a, b, c, d]
 
 readTestRun = do
-  runStreamReaderT readTest $ (mapV (2*)) (produce streamIO)
+  runStreamReaderT readTest $ (fmapV (2*)) (produce streamIO)
