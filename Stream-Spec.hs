@@ -75,6 +75,17 @@ main = hspec $ do
     it "satisfies Distributive axiom" $ property $
       \(p :: FV, q :: FV, x :: SR) -> fmapV (p . q) x == ((fmapV p) . (fmapV q)) x
 
+  describe "Value Monad" $ do
+
+    it "satisfies Left Identity axiom" $ property $
+      \(a :: V, f :: MV) -> (bindV (returnV a) f) == f a
+
+    it "satisfies Right Identity axiom" $ property $
+      \(m :: SR) -> bindV m returnV == m
+
+    it "satisfies Associativity axiom" $ property $
+      \(m :: SR, f :: MV, g :: MV) -> bindV (bindV m f) g == bindV m (\x -> bindV (f x) g)
+
 instance (Arbitrary e, Arbitrary r, Arbitrary v) => Arbitrary (Stream m e r v) where
   arbitrary = oneof [
     arbitrary >>= \r -> return (Stream.Success r),

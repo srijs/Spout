@@ -98,22 +98,28 @@ fmapV f (Pending p) = Pending (liftM (fmapV f) p)
 instance (Monad m) => Functor (StreamV m e r) where
   fmap f = StreamV . (fmapV f) . unwrapV
 
-{- Misc -}
+{- Value Monad -}
 
-returnV :: (Monoid r) => v -> Stream m e r v
-returnV v = Data v (Success mempty)
+returnV :: (Monoid r, Monad m) => v -> Stream m e r v
+returnV v = Data v mempty
+
+bindV :: (Monoid r, Monad m) => Stream m e r v -> (v -> Stream m e r w) -> Stream m e r w
+bindV (Data v s)  f = mappend (f v) (bindV s f)
+bindV (Pending p) f = Pending (liftM (\s -> bindV s f) p)
+bindV (Failure e) _ = Failure e
+bindV (Success r) _ = Success r
+
+instance (Monoid r, Monad m) => Monad (StreamV m e r) where
+  return = StreamV . returnV
+  (>>=) s f = StreamV (bindV (unwrapV s) (unwrapV . f))
+
+{- Misc -}
 
 mapMV :: (Monad m) => Stream m e r v -> (v -> m w) -> Stream m e r w
 mapMV (Data v s)  f = Pending (liftM (\w -> Data w (mapMV s f)) (f v))
 mapMV (Pending p) f = Pending (liftM (\s -> mapMV s f) p)
 mapMV (Failure e) _ = Failure e
 mapMV (Success r) _ = Success r
-
-bindV :: (Monad m) => Stream m e r v -> (v -> Stream m e r w) -> Stream m e r w
-bindV (Data v s)  f = f v
-bindV (Pending p) f = Pending (liftM (\s -> bindV s f) p)
-bindV (Failure e) _ = Failure e
-bindV (Success r) _ = Success r
 
 producer :: (Functor m) => m (Stream m e r v) -> Stream m e r v -> Stream m e r v
 producer p (Failure e) = Failure e
