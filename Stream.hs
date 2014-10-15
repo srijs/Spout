@@ -16,7 +16,7 @@ newtype StreamR m v e r = StreamR { unwrapR :: Stream m e r v }
 newtype StreamV m e r v = StreamV { unwrapV :: Stream m e r v }
 
 hoist :: (Monad m) => (Stream m e r v) -> m (Stream m e r v)
-hoist (Pending p) = p
+hoist (Pending p) = p >>= hoist
 hoist s           = return s
 
 readChunk :: (Monoid r, Monad m) => (Stream m e r v) -> m (Stream m e r v, Stream m e r v)
