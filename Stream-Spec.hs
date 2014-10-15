@@ -2,24 +2,35 @@
 
 import Test.Tasty
 import Test.Tasty.QuickCheck as QC
+import Test.QuickCheck.Function
+import Test.QuickCheck.Instances
 
 import Text.Show.Functions
 import Control.Monad.Identity
+
+import Data.Set (Set)
 
 import Data.Monoid
 
 import Stream
 
-type R = [Float]
+type R = Set Float
 type V = Int
 type S v r = Stream Identity Int r v
 type SR = S V R
 type SRF = S V FR
 type SVF = S FV R
+type SVFun = S (Fun V V) R
 type FV = V -> V
+type FunV = Fun V V
 type FR = R -> R
 type MV = V -> SR
 type MR = R -> SR
+
+funToSVF (Data (Fun _ f) s) = returnV f
+funToSVF (Pending p) = Pending $! liftM funToSVF p
+funToSVF (Stream.Success r) = Stream.Success r
+funToSVF (Stream.Failure e) = Stream.Failure e
 
 main = defaultMain $ testGroup "Properties"
 
@@ -76,7 +87,7 @@ main = defaultMain $ testGroup "Properties"
     [ QC.testProperty "Identity" $
         \(v :: SR) -> pureV id `apV` v == v
     , QC.testProperty "Composition" $
-        \(u :: SVF, v :: SVF, w :: SR) -> pureV (.) `apV` u `apV` v `apV` w == u `apV` (v `apV` w)
+        \(u :: SVFun, v :: SVFun, w :: SR) -> pureV (.) `apV` (funToSVF u) `apV` (funToSVF v) `apV` w == (funToSVF u ) `apV` ((funToSVF v) `apV` w)
     , QC.testProperty "Homomorphism" $
         \(f :: FV, x :: V) -> pureV f `apV` pureV x == (pureV (f x) :: SR)
     , QC.testProperty "Interchange" $
@@ -87,12 +98,12 @@ main = defaultMain $ testGroup "Properties"
 
   , testGroup "Value Monad"
 
-    [ QC.testProperty "Left Identity"  $
+    [ QC.testProperty "Left Identity" $
         \(a :: V, f :: MV) -> (bindV (returnV a) f) == f a
     , QC.testProperty "Right Identity" $
         \(m :: SR) -> bindV m returnV == m
     , QC.testProperty "Associativity" $
-        \(m :: SR, f :: MV, g :: MV) -> bindV (bindV m f) g == bindV m (\x -> bindV (f x) g)
+        \(m :: SR, (Fun _ (f :: MV)), (Fun _ (g :: MV))) -> bindV (bindV m f) g == bindV m (\x -> bindV (f x) g)
     ]
 
   ]

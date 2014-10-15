@@ -98,7 +98,7 @@ fmapV f (Pending p) = Pending (liftM (fmapV f) p)
 instance (Monad m) => Functor (StreamV m e r) where
   fmap f = StreamV . (fmapV f) . unwrapV
 
-{- Value Applicative -}
+{- Value Applicative - associativity requires `r` to form a commutative monoid -}
 
 pureV :: (Monoid r, Monad m) => v -> Stream m e r v
 pureV = returnV
@@ -110,7 +110,7 @@ instance (Monoid r, Monad m) => Applicative (StreamV m e r) where
   pure = StreamV . pureV
   (<*>) (StreamV m) (StreamV a) = StreamV (apV m a)
 
-{- Value Monad -}
+{- Value Monad - associativity requires `r` to form a commutative monoid -}
 
 returnV :: (Monoid r, Monad m) => v -> Stream m e r v
 returnV v = Data v mempty
