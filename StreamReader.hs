@@ -30,7 +30,7 @@ readTest = do
 
 readTest2 :: (Monad m) => Stream m e r Int -> Stream m e r Int
 readTest2 s = Pending $ do
-  s' <- Stream.readHead s
+  s' <- Stream.hoist s
   case s' of
     (Data i s'') -> return (Data (i * 2) (readTest2 s''))
     (Success r) -> return (Success r)
